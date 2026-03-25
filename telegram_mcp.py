@@ -34,7 +34,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Optional
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from telethon import TelegramClient
 from telethon.tl.types import User, Chat, Channel
 
@@ -83,7 +83,6 @@ async def telegram_lifespan(server):
 
 mcp = FastMCP(
     "Telegram",
-    description="Send and read Telegram messages using your personal account",
     lifespan=telegram_lifespan,
 )
 
@@ -156,7 +155,7 @@ async def _find_contact(client: TelegramClient, name: str) -> list:
 async def telegram_send_message(
     contact_name: str,
     message: str,
-    ctx: Any = None,
+    ctx: Context = None,
 ) -> str:
     """Send a message to a Telegram contact by name.
 
@@ -188,7 +187,7 @@ async def telegram_send_message(
 @mcp.tool()
 async def telegram_search_contacts(
     query: str = "",
-    ctx: Any = None,
+    ctx: Context = None,
 ) -> str:
     """Search your Telegram contacts and chats by name.
 
@@ -216,7 +215,7 @@ async def telegram_search_contacts(
 @mcp.tool()
 async def telegram_list_chats(
     limit: int = 20,
-    ctx: Any = None,
+    ctx: Context = None,
 ) -> str:
     """List your most recent Telegram chats/conversations.
 
@@ -244,7 +243,7 @@ async def telegram_list_chats(
 async def telegram_read_messages(
     contact_name: str,
     limit: int = 10,
-    ctx: Any = None,
+    ctx: Context = None,
 ) -> str:
     """Read recent messages from a Telegram chat.
 
@@ -284,7 +283,7 @@ async def telegram_read_messages(
 @mcp.tool()
 async def telegram_get_unread(
     limit: int = 10,
-    ctx: Any = None,
+    ctx: Context = None,
 ) -> str:
     """Get chats with unread messages.
 
