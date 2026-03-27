@@ -47,36 +47,62 @@ API_HASH = os.getenv("TELEGRAM_API_HASH")
 SESSION_PATH = os.getenv("TELEGRAM_SESSION_PATH", os.path.join(SCRIPT_DIR, "telegram"))
 
 
-# ─── Lifespan: Manage Telegram Client ──────────────────────────────────────
+# ─── Lazy Telegram Client ──────────────────────────────────────────────────
+
+class _LazyTelegram:
+    """Delays Telegram connection until the first tool call.
+
+    This prevents the MCP server from timing out during startup, since
+    connecting to Telegram can take several seconds.
+    """
+
+    def __init__(self):
+        self.client = None
+        self._started = False
+
+    async def ensure_started(self):
+        """Connect to Telegram if not already connected."""
+        if self._started:
+            return
+
+        if not API_ID or not API_HASH:
+            raise RuntimeError(
+                "TELEGRAM_API_ID and TELEGRAM_API_HASH environment variables are required. "
+                "Get them from https://my.telegram.org"
+            )
+
+        session_file = SESSION_PATH + ".session"
+        if not os.path.exists(session_file):
+            raise RuntimeError(
+                f"Session file not found at {session_file}. "
+                "Run auth_telegram.py first to authenticate."
+            )
+
+        self.client = TelegramClient(SESSION_PATH, int(API_ID), API_HASH)
+        await self.client.connect()
+
+        if not await self.client.is_user_authorized():
+            raise RuntimeError(
+                "Telegram session expired. Run auth_telegram.py again to re-authenticate."
+            )
+
+        self._started = True
+
+    async def shutdown(self):
+        """Disconnect from Telegram."""
+        if self._started and self.client:
+            try:
+                await self.client.disconnect()
+            except Exception:
+                pass
+
 
 @asynccontextmanager
 async def telegram_lifespan(server):
-    """Connect to Telegram using existing session."""
-    if not API_ID or not API_HASH:
-        raise RuntimeError(
-            "TELEGRAM_API_ID and TELEGRAM_API_HASH environment variables are required. "
-            "Get them from https://my.telegram.org"
-        )
-
-    session_file = SESSION_PATH + ".session"
-    if not os.path.exists(session_file):
-        raise RuntimeError(
-            f"Session file not found at {session_file}. "
-            "Run auth_telegram.py first to authenticate."
-        )
-
-    client = TelegramClient(SESSION_PATH, int(API_ID), API_HASH)
-    await client.connect()
-
-    if not await client.is_user_authorized():
-        raise RuntimeError(
-            "Telegram session expired. Run auth_telegram.py again to re-authenticate."
-        )
-
-    try:
-        yield {"telegram_client": client}
-    finally:
-        await client.disconnect()
+    """MCP lifespan — returns immediately; Telegram connects on first use."""
+    lazy = _LazyTelegram()
+    yield {"_lazy": lazy}
+    await lazy.shutdown()
 
 
 # ─── Server Setup ───────────────────────────────────────────────────────────
@@ -89,9 +115,11 @@ mcp = FastMCP(
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
-def _get_client(ctx) -> TelegramClient:
-    """Get the Telegram client from the MCP context."""
-    return ctx.request_context.lifespan_context["telegram_client"]
+async def _get_client(ctx) -> TelegramClient:
+    """Get the Telegram client, connecting if needed."""
+    lazy = ctx.request_context.lifespan_context["_lazy"]
+    await lazy.ensure_started()
+    return lazy.client
 
 
 def _format_entity_name(entity) -> str:
@@ -167,7 +195,7 @@ async def telegram_send_message(
         contact_name: The name to search for (first name, last name, full name, or username)
         message: The message text to send
     """
-    client = _get_client(ctx)
+    client = await _get_client(ctx)
     matches = await _find_contact(client, contact_name)
 
     if not matches:
@@ -196,7 +224,7 @@ async def telegram_search_contacts(
     Args:
         query: Name to search for (optional — leave empty to list all)
     """
-    client = _get_client(ctx)
+    client = await _get_client(ctx)
     results = []
 
     async for dialog in client.iter_dialogs(limit=None):
@@ -222,7 +250,7 @@ async def telegram_list_chats(
     Args:
         limit: Maximum number of chats to return (default: 20)
     """
-    client = _get_client(ctx)
+    client = await _get_client(ctx)
     lines = [f"Recent chats (last {limit}):"]
 
     count = 0
@@ -251,7 +279,7 @@ async def telegram_read_messages(
         contact_name: The name of the contact or chat to read from
         limit: Number of recent messages to return (default: 10)
     """
-    client = _get_client(ctx)
+    client = await _get_client(ctx)
     matches = await _find_contact(client, contact_name)
 
     if not matches:
@@ -290,7 +318,7 @@ async def telegram_get_unread(
     Args:
         limit: Maximum number of chats to check (default: 10)
     """
-    client = _get_client(ctx)
+    client = await _get_client(ctx)
     lines = ["Chats with unread messages:"]
 
     count = 0
