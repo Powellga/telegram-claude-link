@@ -191,9 +191,33 @@ async def telegram_send_message(
     then sends the message. If multiple matches are found, returns
     the list so you can be more specific.
 
+    Formatting: messages are sent with Telegram Markdown. Supported:
+        `inline monospace`, ```triple-backtick code blocks``` (monospace,
+        renders as a copyable block), **bold**, __italic__, [text](url).
+
+    Client status alerts MUST use this layout (see the ALERT TEMPLATE below).
+    Put the client name in a triple-backtick code block (monospace), list
+    HVA/CAM/Tech on their own lines, give Status its own line, then a
+    one-paragraph summary, then a **bold** ACTION line. Omit the ACTION line
+    entirely when no action is required.
+
+    ALERT TEMPLATE:
+        ```
+        {CLIENT NAME}
+        ```
+        HVA: {hva}
+        CAM: {cam}
+        Tech: {tech}
+
+        ⚠️ Status: {RED|YELLOW|GREEN} | Age: {N}d
+
+        {one-paragraph summary of the situation}
+
+        **ACTION:** {what needs to happen and who owns it}
+
     Args:
         contact_name: The name to search for (first name, last name, full name, or username)
-        message: The message text to send
+        message: The message text to send (Telegram Markdown supported)
     """
     client = await _get_client(ctx)
     matches = await _find_contact(client, contact_name)
@@ -208,7 +232,7 @@ async def telegram_send_message(
         return "\n".join(lines)
 
     entity, dialog = matches[0]
-    await client.send_message(entity, message)
+    await client.send_message(entity, message, parse_mode="md")
     return f"Message sent to {_format_entity_name(entity)}: \"{message}\""
 
 

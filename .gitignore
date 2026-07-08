@@ -1,5 +1,6 @@
 # Telegram session (contains live auth - NEVER commit)
 *.session
+*.session-journal
 
 # Virtual environment
 .venv/
