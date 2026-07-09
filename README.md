@@ -8,50 +8,13 @@ Five tools, registered under the `mcp__telegram__*` namespace:
 
 | Tool | Purpose |
 |------|---------|
-| `telegram_send_message` | Send a message to a contact/chat by name (Markdown supported) |
+| `telegram_send_message` | Send a message to a contact/chat by name |
 | `telegram_search_contacts` | Find contacts/chats matching a name (or list all) |
 | `telegram_list_chats` | List the most recent chats |
 | `telegram_read_messages` | Read recent messages from a chat |
 | `telegram_get_unread` | Show chats with unread messages |
 
 The Telegram client uses a lazy-connect pattern so the MCP server starts instantly and only connects to Telegram on the first tool call (avoids MCP startup timeouts).
-
-## Message formatting
-
-Messages are sent with **Telegram Markdown** (Telethon's default). Supported:
-
-- `` `inline monospace` ``
-- ` ```triple-backtick code block``` ` &rarr; monospace box (Telegram adds a "copy" button automatically)
-- `**bold**`
-- `__italic__`
-- `[text](url)`
-
-### Client status alert format
-
-When sending a client status alert, use this layout so it reads cleanly and consistently:
-
-````
-```
-{CLIENT NAME}
-```
-HVA: {hva}
-CAM: {cam}
-Tech: {tech}
-
-⚠️ Status: {RED|YELLOW|GREEN} | Age: {N}d
-
-{one-paragraph summary of the situation}
-
-**ACTION:** {what needs to happen and who owns it}
-````
-
-Rules:
-
-- **Client name** goes in a triple-backtick code block so it renders in a distinct monospace box. The "copy" button Telegram adds is expected.
-- **HVA / CAM / Tech** each on their own line.
-- **Status** on its own line: `⚠️ Status: X | Age: Nd`.
-- **Summary**: one concise paragraph.
-- **ACTION** line is **bold** (`**ACTION:**`). Omit the ACTION line entirely when no action is required (e.g. a resolved / GREEN alert).
 
 ## Requirements
 
@@ -115,11 +78,10 @@ Optional: set `TELEGRAM_SESSION_PATH` to point at a session file in a different 
 | `auth.bat` | Windows wrapper that activates `.venv` and runs `auth_telegram.py` |
 | `install.sh` | Creates `.venv` and installs `requirements.txt` |
 | `requirements.txt` | Python dependencies |
-| `CLAUDE.md` | Hint to Claude Code about the available tools and alert format |
+| `CLAUDE.md` | Hint to Claude Code about the available tools |
 
 ## Security notes
 
 - This server uses your **personal** Telegram account, not a bot account. Anything Claude sends will appear to come from you.
-- The `telegram.session` file (and its journal) is the equivalent of a logged-in session - do not commit it or share it. Both are excluded by `.gitignore`.
-- API credentials live only in the local MCP config, never in source.
+- The `telegram.session` file is the equivalent of a logged-in session - do not commit it or share it.
 - Telethon will respect Telegram's rate limits; very high call volumes may trigger temporary throttling.
